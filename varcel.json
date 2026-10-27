@@ -1,8 +1,5 @@
 {
   "rewrites": [
-    {
-      "source": "/api/extract",
-      "destination": "/index.html"
-    }
+    { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
 }
