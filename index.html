@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safelink Multi-Bypass Engine</title>
+    <style>
+        :root {
+            --bg: #09090b;
+            --card: #18181b;
+            --text: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --border: #27272a;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --success-hover: #059669;
+            --error: #ef4444;
+            --error-bg: #450a0a;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 540px;
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+        }
+        .header { text-align: center; margin-bottom: 24px; }
+        .header h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(to right, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header p { font-size: 14px; color: var(--text-muted); }
+        .input-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        
+        input[type="url"] {
+            width: 100%;
+            padding: 14px 16px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="url"]:focus { border-color: var(--primary); }
+
+        button {
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-success { background: var(--success); color: #fff; text-decoration: none; width: 100%; }
+        .btn-success:hover { background: var(--success-hover); }
+        .btn-outline {
+            background: transparent; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; font-size: 13px;
+        }
+
+        .loader { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .result-card {
+            display: none; background: #000; border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-top: 20px;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .result-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; }
+        .link-box { display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; gap: 10px; }
+        .link-text { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+        
+        .error-box { display: none; background: var(--error-bg); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--error); padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; animation: slideUp 0.3s; }
+        .method-info { font-size: 11px; color: var(--text-muted); margin-top: 12px; text-align: center; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Multi-Bypass Engine</h1>
+        <p>Ekstrak tautan asli dari Safelink, SubUnlock, dll.</p>
+    </div>
+
+    <div id="error-box" class="error-box"></div>
+
+    <div class="input-group">
+        <input type="url" id="url-input" placeholder="https://safelinku.com/xxxx atau https://subunlock.com/xxxx" autocomplete="off">
+        <button id="btn-generate" class="btn-primary" onclick="processLink()">
+            <span id="btn-text">Buka Link</span>
+            <div class="loader" id="loading-spinner"></div>
+        </button>
+    </div>
+
+    <div id="result" class="result-card">
+        <div class="result-label">Link Utama</div>
+        <div class="link-box">
+            <span id="result-url" class="link-text"></span>
+            <button class="btn-outline" onclick="copyLink()" id="btn-copy">Copy</button>
+        </div>
+        <a id="btn-open" href="#" target="_blank" rel="noopener noreferrer" class="btn-success">Buka Tujuan Asli</a>
+        <div class="method-info" id="method-info">Metode: -</div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. LOGIKA FRONTEND (Jalan di Browser User)
+    // ==========================================
+    const urlInput = document.getElementById('url-input');
+    const btnGen = document.getElementById('btn-generate');
+    const btnText = document.getElementById('btn-text');
+    const spinner = document.getElementById('loading-spinner');
+    const resultCard = document.getElementById('result');
+    const resultUrl = document.getElementById('result-url');
+    const btnOpen = document.getElementById('btn-open');
+    const errorBox = document.getElementById('error-box');
+    const methodInfo = document.getElementById('method-info');
+
+    function setLoading(isLoading) {
+        btnGen.disabled = isLoading;
+        if (isLoading) {
+            btnText.innerText = 'Memproses...';
+            spinner.style.display = 'block';
+            resultCard.style.display = 'none';
+            errorBox.style.display = 'none';
+        } else {
+            btnText.innerText = 'Buka Link';
+            spinner.style.display = 'none';
+        }
+    }
+
+    function showError(msg) {
+        errorBox.innerText = msg;
+        errorBox.style.display = 'block';
+        resultCard.style.display = 'none';
+    }
+
+    function showResult(url, method) {
+        resultUrl.innerText = url;
+        btnOpen.href = url;
+        methodInfo.innerText = 'Metode ekstraksi: ' + method;
+        resultCard.style.display = 'block';
+        errorBox.style.display = 'none';
+    }
+
+    function copyLink() {
+        const url = resultUrl.innerText;
+        navigator.clipboard.writeText(url).then(() => {
+            const btn = document.getElementById('btn-copy');
+            btn.innerText = 'Copied!';
+            setTimeout(() => btn.innerText = 'Copy', 2000);
+        });
+    }
+
+    function extractDirectParam(urlStr) {
+        try {
+            const url = new URL(urlStr);
+            const params = ['url', 'r', 'u', 'target', 'redirect', 'dest', 'go', 'to', 'out'];
+            for (let param of params) {
+                if (url.searchParams.has(param)) {
+                    let val = url.searchParams.get(param);
+                    if (val.startsWith('http://') || val.startsWith('https://')) return decodeURIComponent(val);
+                }
+            }
+            if (url.hash && url.hash.length > 10) {
+                try { const decoded = atob(url.hash.substring(1)); if (decoded.startsWith('http')) return decoded; } catch(e) {}
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    async function processLink() {
+        const rawUrl = urlInput.value.trim();
+        if (!rawUrl) return showError("URL tidak boleh kosong.");
+
+        try {
+            const validUrl = new URL(rawUrl);
+            if (!validUrl.protocol.startsWith('http')) throw new Error();
+        } catch (e) {
+            return showError("Format URL tidak valid. Pastikan diawali dengan http:// atau https://");
+        }
+
+        setLoading(true);
+
+        // 1. Coba Direct URL Parameter (Instan)
+        let finalUrl = extractDirectParam(rawUrl);
+        if (finalUrl) {
+            setLoading(false);
+            return showResult(finalUrl, "Direct Parameter (Frontend)");
+        }
+
+        // 2. Panggil Backend Vercel (Serverless API)
+        try {
+            // Endpoint ini di-rewrite oleh vercel.json
+            const res = await fetch(`/api/extract?url=${encodeURIComponent(rawUrl)}`);
+            const data = await res.json();
+
+            if (data.success && data.url) {
+                setLoading(false);
+                return showResult(data.url, data.method);
+            } else {
+                setLoading(false);
+                return showError(data.error || "Gagal mengekstrak link. Safelink mungkin menggunakan proteksi Captcha/Cloudflare.");
+            }
+        } catch (e) {
+            setLoading(false);
+            return showError("Gagal menghubungi server API. Pastikan lo udah setup vercel.json dengan benar.");
+        }
+    }
+    urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') processLink(); });
+</script>
+
+<!-- 
+    ==========================================
+    2. LOGIKA BACKEND (Vercel Serverless Function)
+    Script di bawah ini akan dieksekusi oleh Vercel, bukan oleh browser user.
+    ==========================================
+-->
+<script type="text/x-vercel-serverless">
+module.exports = async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ success: false, error: 'URL Kosong' });
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5'
+            }
+        });
+        
+        const html = await response.text();
+        let targetUrl = null;
+        let method = "";
+
+        // A. Cek Meta Refresh (Safelinku, dll)
+        const metaMatch = html.match(/<meta[^>]*http-equiv=["']?refresh["']?[^>]*content=["']?\d+;\s*url=([^"'>\s]+)/i);
+        if (metaMatch && metaMatch[1]) {
+            targetUrl = metaMatch[1].replace(/&amp;/g, '&');
+            method = "Meta Refresh Tag";
+        }
+
+        // B. Cek Window Location (SubUnlock, dll)
+        if (!targetUrl) {
+            const winMatch = html.match(/window\.location\.href\s*=\s*["']([^"']+)["']/i);
+            if (winMatch && winMatch[1]) {
+                targetUrl = winMatch[1];
+                method = "Window Location Script";
+            }
+        }
+
+        // C. Cek Form Action (Safelink lama)
+        if (!targetUrl) {
+            const formMatch = html.match(/<form[^>]*action=["'](https?:\/\/[^"']+)["']/i);
+            if (formMatch && formMatch[1]) {
+                targetUrl = formMatch[1];
+                method = "Form Action";
+            }
+        }
+
+        // D. Cek Base64 Obfuscation (Sering dipakai Safelinku)
+        if (!targetUrl) {
+            const b64Match = html.match(/atob\(['"]([^'"]+)['"]\)/);
+            if (b64Match && b64Match[1]) {
+                try { 
+                    const dec = atob(b64Match[1]); 
+                    if (dec.startsWith('http')) { targetUrl = dec; method = "Base64 Decode"; }
+                } catch(e) {}
+            }
+        }
+
+        // Validasi: Jangan return URL safelink itu sendiri
+        if (targetUrl && targetUrl !== url && !targetUrl.includes(new URL(url).hostname)) {
+            return res.status(200).json({ success: true, url: targetUrl, method: method });
+        } else {
+            return res.status(200).json({ success: false, error: 'Link asli tidak ditemukan di HTML. Mungkin butuh interaksi timer/JS.' });
+        }
+
+    } catch (error) {
+        return res.status(500).json({ success: false, error: 'Server Fetch Error: ' + error.message });
+    }
+};
+</script>
+</body>
+</html>
